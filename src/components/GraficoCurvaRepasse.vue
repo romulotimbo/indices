@@ -2,7 +2,7 @@
   <div>
     <q-card>
       <q-card-section class="text-h6">
-        Bar Chart
+        Gráfico Curva de Repasse {{ controladora.label }}
         <q-btn
           icon="fa fa-download"
           class="float-right"
@@ -17,7 +17,7 @@
         <div ref="barchart" id="barChart" style="height: 500px">
           <q-card class="bg-white q-ml-sm shadow-11">
             <q-card-section class="q-pa-none map_height">
-              <IEcharts :option="getBarChartOptions" :loading="loading" />
+              <IEcharts />
             </q-card-section>
           </q-card>
         </div>
@@ -32,8 +32,13 @@ import { markRaw, ref, onMounted } from "vue";
 import { IEcharts } from "vue-echarts-v3/src/full.js";
 import * as echarts from "echarts/lib/echarts";
 
+import axios from "axios";
+
 export default {
   name: "GraficoCurvaRepasse",
+  props: {
+    controladora: ref(0),
+  },
   data() {
     return {
       model: false,
@@ -49,32 +54,19 @@ export default {
         },
         toolbox: {
           feature: {
-            dataView: { show: true, readOnly: false },
-            magicType: { show: true, type: ["line", "bar"] },
-            restore: { show: true },
-            saveAsImage: { show: true },
+            dataView: { show: false, readOnly: false },
+            magicType: { show: false, type: ["line", "bar"] },
+            restore: { show: false },
+            saveAsImage: { show: false },
           },
         },
         legend: {
-          data: ["uh", "percent"],
+          data: ["uh", "Percentual"],
         },
         xAxis: [
           {
             type: "category",
-            data: [
-              "1° Mês",
-              "2° Mês",
-              "3° Mês",
-              "4° Mês",
-              "5° Mês",
-              "6° Mês",
-              "7° Mês",
-              "8° Mês",
-              "9° Mês",
-              "10° Mês",
-              "11° Mês",
-              "12° Mês",
-            ],
+            data: [],
             axisPointer: {
               type: "shadow",
             },
@@ -93,7 +85,7 @@ export default {
           },
           {
             type: "value",
-            name: "percent",
+            name: "Percentual",
             min: 0,
             max: 100,
             interval: 10,
@@ -107,16 +99,15 @@ export default {
             name: "Percentual UH Repassadas",
             type: "bar",
             tooltip: {
-              valueFormatter: function (value) {
-                return value + " %";
-              },
+              show: true,
+              trigger: "item",
+              //valueFormatter: function (value) {
+              //  return value + " %";
+              //},
             },
-            data: [
-              2.0, 4.9, 7.0, 23.2, 25.6, 36.7, 41.6, 46.2, 68.6, 72.0, 84.4,
-              93.3,
-            ],
+            data: [],
           },
-          {
+          /*{
             name: "Percentual de referência",
             type: "line",
             yAxisIndex: 1,
@@ -129,18 +120,55 @@ export default {
               50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0,
               50.0,
             ],
-          },
+          },*/
         ],
       },
       bar_chart: null,
+      vendas: null,
+      acumulado: null,
+      results: null,
     };
   },
-  mounted() {
+  async created() {},
+  async mounted() {
+    console.log("controladora: ", this.controladora.value);
+    let resp = await fetch(
+      "/indices-operacionais/backend/get_controladora.php?CNPJ=" +
+        cnpj.value +
+        "&OPCAO=vendas"
+    );
+    let data = await resp.json();
+    this.vendas = data;
+
+    //for (let i = 0; i < this.vendas.length; i++) {
+    //this.options.series[0].data.push(this.vendas[i].Acumulado * 100);
+    //this.options.xAxis[0].data.push(this.vendas[i].ponto);
+    this.options.series[0].data.push(0);
+    this.options.xAxis[0].data.push(0);
+    //console.log(this.vendas[i].Acumulado);
+    //}
+    console.log("acumuoado: ", this.options.series);
+
+    //console.log("vendas", this.vendas.Acumulado.value);
     this.init();
   },
   watch: {
     "$q.dark.isActive": function () {
       this.init();
+    },
+    controladora: function (newVal, oldVal) {
+      // watch it
+      console.log("Prop changed: ", newVal, " | was: ", oldVal);
+      this.fetchData(newVal);
+      /*       let resp = fetch("http://localhost:3000/vendas?cnpj=" + newVal);
+      let data = resp.json();
+      this.vendas = data;
+      this.options.series[0].data.splice;
+      this.options.xAxis[0].data.splice;
+      for (let i = 0; i < this.vendas.length; i++) {
+        this.options.series[0].data.push(this.vendas[i].Acumulado * 100);
+        this.options.xAxis[0].data.push(this.vendas[i].ponto);
+      } */
     },
   },
   methods: {
@@ -159,45 +187,41 @@ export default {
       this.bar_chart = echarts.init(barChart);
       this.bar_chart.setOption(this.options);
     },
+    reload() {
+      let barChart = document.getElementById("barChart");
+      //echarts.dispose(barChart);
+
+      this.bar_chart = echarts.init(barChart);
+      this.bar_chart.setOption(this.options);
+    },
     onResize() {
       if (this.bar_chart) {
         this.bar_chart.resize();
       }
     },
+    async fetchData(cnpj) {
+      let resp = await fetch(
+        "/indices-operacionais/backend/get_controladora.php?CNPJ=" +
+          cnpj.value +
+          "&OPCAO=vendas"
+      );
+      let data = await resp.json();
+      this.vendas = null;
+      this.vendas = data;
+      console.log(this.vendas);
+      this.options.series[0].data = [];
+      this.options.xAxis[0].data = [];
+      for (let i = 0; i < this.vendas.length; i++) {
+        this.options.series[0].data.push(this.vendas[i].Acumulado * 100);
+        this.options.xAxis[0].data.push(this.vendas[i].ponto);
+      }
+      this.reload();
+    },
   },
   components: {
     IEcharts,
   },
-  computed: {
-    getBarChartOptions() {
-      let self = this;
-      let filtered_data = this.data;
-
-      return {
-        grid: {
-          bottom: "25%",
-        },
-        xAxis: {
-          type: "category",
-          axisLabel: {},
-          nameLocation: "middle",
-          nameGap: 78,
-        },
-        tooltip: {},
-        dataset: {
-          dimensions: ["product", "2015", "2016", "2017"],
-          source: filtered_data,
-        },
-        yAxis: {
-          type: "value",
-          splitLine: {
-            show: false,
-          },
-        },
-        series: [{ type: "bar" }, { type: "bar" }, { type: "bar" }],
-      };
-    },
-  },
+  computed: {},
 };
 </script>
 
