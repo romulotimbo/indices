@@ -17,8 +17,8 @@
         Indices Operacionais
       </h3>
       <router-view />
-    </q-page-container> </q-layout
-  >>
+    </q-page-container>
+  </q-layout>
 </template>
 
 <script>
